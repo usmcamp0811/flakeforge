@@ -230,4 +230,35 @@ in
           '';
     in
     conf;
+  # Helper function to create a Docker image with a corresponding streamLayeredImageConf
+  buildAppImage =
+    {
+      name,
+      tag,
+      contents,
+      entrypoint,
+      flakeName,
+    }:
+    let
+      layeredImage = pkgs.dockerTools.buildLayeredImage {
+        inherit name tag contents;
+        config = {
+          Entrypoint = entrypoint;
+        };
+      };
+
+      streamImage = pkgs.sockerTools.streamLayeredImageConf {
+        inherit name tag;
+        contents = [ flakeName ];
+        config = {
+          Entrypoint = entrypoint;
+        };
+      };
+    in
+    layeredImage
+    // {
+      passthru = {
+        streamConf = streamImage;
+      };
+    };
 }
