@@ -1,3 +1,4 @@
+import gzip
 import hashlib
 import itertools
 import json
@@ -115,8 +116,15 @@ def get_manifest(
     digest_map = {}
     layers = []
 
-    with open(nixConfPath) as f:
-        conf = json.load(f)
+    # Check if the file is compressed
+    with open(nixConfPath, "rb") as f:
+        header = f.read(2)
+        if header == b"\x1f\x8b":  # gzip magic number
+            with gzip.open(nixConfPath, "rt") as decompressed_file:
+                conf = json.load(decompressed_file)
+        else:
+            with open(nixConfPath, "r") as regular_file:
+                conf = json.load(regular_file)
 
     mtime = int(datetime.fromisoformat(conf["created"]).timestamp())
 
@@ -152,7 +160,7 @@ def get_manifest(
     checksum_path = os.path.join(conf["customisation_layer"], "checksum")
     with open(checksum_path) as f:
         checksum = f.read().strip()
-    assert len(checksum) == 64, f"Invalid sha256 at ${checksum_path}."
+    assert len(checksum) == 64, f"Invalid sha256 at {checksum_path}."
     customisation_layer_size = os.path.getsize(
         os.path.join(conf["customisation_layer"], "layer.tar")
     )
