@@ -239,95 +239,34 @@ class BuildImageError(Exception):
         super().__init__(message)
 
 
-def build_conf(flakeroot: str, image: str, tag: str, layered: bool = False) -> str:
+def build_conf(flakeroot: str, image: str, tag: str) -> str:
     logger.info("Building %s:%s", image, tag)
 
-    # Determine the appropriate flake reference based on the tag
     path = "" if tag == "latest" else f"/{tag}"
 
-    # First, build the layered image (if needed)
-    if layered:
-        cmd = [
-            "nix",
-            "build",
-            "--refresh",
-            "--no-link",
-            "--print-out-paths",
-            "--extra-experimental-features",
-            "nix-command flakes",
-            f"{flakeroot}{path}#{image}",
-        ]
-        logger.debug("Running layered image command: %s", " ".join(cmd))
+    cmd = [
+        "nix",
+        "build",
+        "--refresh",
+        "--no-link",
+        "--print-out-paths",
+        "--extra-experimental-features",
+        "nix-command flakes",
+        f"{flakeroot}{path}#{image}",
+    ]
+    logger.debug("Running command: %s", " ".join(cmd))
 
-        with subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ) as proc:
-            stdout, stderr = proc.communicate()
-            if proc.returncode != 0:
-                logger.error("Error building layered image %s: %s", image, stderr)
-                raise BuildImageError(f"Error building layered image {image}: {stderr}")
-            nix_layered_path = stdout.strip()
-
-        logger.debug("Layered image Nix path: %s", nix_layered_path)
-
-        # Now, use the built layered image as input to the streamed image
-        stream_cmd = [
-            "nix",
-            "build",
-            "--refresh",
-            "--no-link",
-            "--print-out-paths",
-            "--extra-experimental-features",
-            "nix-command flakes",
-            f"{flakeroot}{path}#{image}-streamed",
-            "--argstr",
-            "fromImage",
-            nix_layered_path,
-        ]
-        logger.debug("Running streamed image command: %s", " ".join(stream_cmd))
-
-        with subprocess.Popen(
-            stream_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ) as proc:
-            stdout, stderr = proc.communicate()
-            if proc.returncode != 0:
-                logger.error("Error building streamed image %s: %s", image, stderr)
-                raise BuildImageError(
-                    f"Error building streamed image {image}: {stderr}"
-                )
-            nix_path = stdout.strip()
-
-    else:
-        # If not layered, build directly
-        cmd = [
-            "nix",
-            "build",
-            "--refresh",
-            "--no-link",
-            "--print-out-paths",
-            "--extra-experimental-features",
-            "nix-command flakes",
-            f"{flakeroot}{path}#{image}",
-        ]
-        logger.debug("Running command: %s", " ".join(cmd))
-
-        with subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ) as proc:
-            stdout, stderr = proc.communicate()
-            if proc.returncode != 0:
-                logger.error("Error building image %s: %s", image, stderr)
-                raise BuildImageError(f"Error building image {image}: {stderr}")
-            nix_path = stdout.strip()
+    with subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    ) as proc:
+        stdout, stderr = proc.communicate()
+        if proc.returncode != 0:
+            logger.error("Error building image %s: %s", image, stderr)
+            raise BuildImageError(f"Error building image {image}: {stderr}")
+        nix_path = stdout.strip()
 
     logger.debug("Nix path: %s", nix_path)
     return nix_path
