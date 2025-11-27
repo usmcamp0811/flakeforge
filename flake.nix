@@ -6,25 +6,22 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs =
-    {
-      self,
-      flake-utils,
-      nixpkgs,
-    }:
+  outputs = {
+    self,
+    flake-utils,
+    nixpkgs,
+  }:
     flake-utils.lib.eachDefaultSystem (
-      system:
-      let
+      system: let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ self.overlay ];
+          overlays = [self.overlay];
         };
-      in
-      {
+      in {
         packages = {
           docker-image-stream = pkgs.flakeforgeTools.streamLayeredImageConf {
             name = "bash-stream-layered";
-            contents = [ pkgs.bashInteractive ];
+            contents = [pkgs.bashInteractive];
           };
 
           flakeforge = pkgs.flakeforge;
@@ -36,23 +33,23 @@
     )
     // {
       nixosModules = rec {
-        flakeforge = import ./nixos { inherit (self) overlay; };
+        flakeforge = import ./nixos {inherit (self) overlay;};
         default = flakeforge;
       };
 
       overlay = self: super: {
-        flakeforge =
-          with super.python3Packages;
+        flakeforge = with super.python3Packages;
           buildPythonApplication {
             pname = "flakeforge";
             version = "0.0.1";
             src = ./src;
+            format = "setuptools";
             propagatedBuildInputs = [
               starlette
               uvicorn
             ];
           };
-        flakeforgeTools = self.callPackage ./flakeforge-tools/default.nix { };
+        flakeforgeTools = self.callPackage ./flakeforge-tools/default.nix {};
       };
     };
 }
